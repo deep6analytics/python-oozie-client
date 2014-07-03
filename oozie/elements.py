@@ -44,7 +44,7 @@ class workflow(_parameterizedElement):
             parameters['name'] = 'action-' + str(len(list(self.iterchildren())) + 1)
         if parameters.get('template') is not None:
             actionElement = {
-                'map-reduce': mapreduce({k: v for (k, v) in parameters.iteritems() if k not in self.deniedAttributes}),
+                'map-reduce': mapreduce(dict(k=v for (k, v) in parameters.iteritems() if k not in self.deniedAttributes)),
             }[parameters.get('template')]
         else:
             actionElement = action(parameters)
