@@ -44,7 +44,7 @@ class workflow(_parameterizedElement):
             parameters['name'] = 'action-' + str(len(list(self.iterchildren())) + 1)
         if parameters.get('template') is not None:
             actionElement = {
-                'map-reduce': mapreduce(dict(k=v for (k, v) in parameters.iteritems() if k not in self.deniedAttributes)),
+                'map-reduce': mapreduce(dict((k, v) for (k, v) in parameters.iteritems() if k not in self.deniedAttributes)),
             }[parameters.get('template')]
         else:
             actionElement = action(parameters)
@@ -203,7 +203,7 @@ class mapreduce(action):
         self.deniedAttributes = (self.deniedAttributes or [])
         self.deniedAttributes.extend(['mapper', 'reducer'])
         super(mapreduce, self).__init__(*args, **kwargs)
-        self.append(_nestedMapReduce({k: v for (k, v) in self._parameters.iteritems() if k in (self.deniedAttributes + ['name'])}))
+        self.append(_nestedMapReduce(dict((k, v) for (k, v) in self._parameters.iteritems() if k in (self.deniedAttributes + ['name']))))
 
 class _nestedHive(_nestedAction):
     def __init__(self, *args, **kwargs):
@@ -219,7 +219,7 @@ class hive(action):
         self.deniedAttributes = (self.deniedAttributes or [])
         self.deniedAttributes.extend(['mapper', 'reducer'])
         super(hive, self).__init__(*args, **kwargs)
-        self.append(_nestedHive({k: v for (k, v) in self._parameters.iteritems() if k in (self.deniedAttributes + ['name'])}))
+        self.append(_nestedHive(dict((k, v) for (k, v) in self._parameters.iteritems() if k in (self.deniedAttributes + ['name']))))
 
 class ok(_parameterizedElement):
     pass
