@@ -116,7 +116,7 @@ class jobConfiguration(object):
         try:
             assert os.path.exists(localPath)
         except AssertionError:
-            raise errors.ClientError('File to upload does not exist: "' + localFilename + '"')
+            raise errors.ClientError('File to upload does not exist: "' + localPath + '"')
         
         def walk(path):
             for (dirpath, dirnames, filenames) in os.walk(path):
