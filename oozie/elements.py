@@ -1,9 +1,8 @@
 import collections
 import logging
+
 import lxml.etree
-
 from . import errors
-
 
 
 class _parameterizedElement(lxml.etree.ElementBase):
@@ -20,12 +19,14 @@ class _parameterizedElement(lxml.etree.ElementBase):
         super(_parameterizedElement, self).__init__()
         self._parameters = kwargs.get('parameters', (list(args) + [{}])[0])
         self._setAttributes(self._parameters)
+
     def _setAttributes(self, attributes):
         for (k, v) in attributes.iteritems():
             if self.deniedAttributes is not None and k in self.deniedAttributes:
                 continue
             if self.allowedAttributes is None or k in self.allowedAttributes:
                 self.set(k, v)
+
 
 class workflow(_parameterizedElement):
     def __init__(self, *args, **kwargs):
@@ -37,35 +38,36 @@ class workflow(_parameterizedElement):
         self.set('xmlns', 'uri:oozie:workflow:0.2')
         for action in self._parameters.get('actions', []):
             self.add_action(action)
-    
+
     def add_action(self, parameters=None):
         parameters = parameters or {}
         if parameters.get('name') is None:
             parameters['name'] = 'action-' + str(len(list(self.iterchildren())) + 1)
         if parameters.get('template') is not None:
             actionElement = {
-                'map-reduce': mapreduce(dict((k, v) for (k, v) in parameters.iteritems() if k not in self.deniedAttributes)),
+                'map-reduce': mapreduce(
+                    dict((k, v) for (k, v) in parameters.iteritems() if k not in self.deniedAttributes)),
             }[parameters.get('template')]
         else:
             actionElement = action(parameters)
         self.append(actionElement)
         return actionElement
-    
+
     def fix(self):
         print lxml.etree.tostring(self, pretty_print=True)
-        
+
         # Must have a start node
         if len(list(self.iterchildren(tag='start'))) < 1 and len(list(self.iterchildren(tag='action'))) > 0:
             start = self.makeelement('start')
             start.set('to', list(self.iterchildren(tag='action'))[0].get('name'))
             self.append(start)
-        
+
         # We'll want to know the name of the existing end node and kill node
         # in case we find some actions that are missing the references.  If
         # none exists, we'll create some with some default names later.
         endNodeName = (list(self.iterchildren(tag='end')) + [{}])[0].get('name') or 'end'
         killNodeName = (list(self.iterchildren(tag='kill')) + [{}])[0].get('name') or 'kill'
-        
+
         for action in self.iterchildren(tag='action'):
             # Every action node needs an "ok" transition and an "error"
             # transition, and they must appear in that order as the last
@@ -86,7 +88,7 @@ class workflow(_parameterizedElement):
                 errorElement = list(action.iterchildren(tag='error'))[0]
                 action.remove(errorElement)
                 action.append(errorElement)
-        
+
         # If a node was ever referenced then it should exist.
         existingNodeNames = set([node.get('name') for node in lxml.etree.XPath('//action | //end | //kill')(self)])
         referencedNodeNames = set([node.get('to') for node in lxml.etree.XPath('//*[@to]')(self)])
@@ -106,7 +108,7 @@ class workflow(_parameterizedElement):
                 messageElement.text = 'Map/Reduce failed, error message[${wf:errorMessage(wf:lastErrorNode())}]'
                 killElement.append(messageElement)
                 self.append(killElement)
-            
+
         # Start node must be first in workflow
         if len(list(self.iterchildren(tag='start'))) == 1 and list(self.iterchildren())[0].tag != 'start':
             startNode = list(self.iterchildren(tag='start'))[0]
@@ -117,35 +119,36 @@ class workflow(_parameterizedElement):
             endNode = list(self.iterchildren(tag='end'))[0]
             self.remove(endNode)
             self.append(endNode)
-    
+
     def validate(self, fix=True):
         # Fix any trivial problems before strict validation.
         if fix:
             self.fix()
-        
+
         print lxml.etree.tostring(self, pretty_print=True)
-        
+
         try:
             assert len(list(self.iterchildren(tag='start'))) == 1, 'no start node'
             assert len(list(self.iterchildren(tag='action'))) >= 1, 'no action nodes'
             assert len(list(self.iterchildren(tag='end'))) == 1, 'no end node'
-            
+
             assert list(self.iterchildren())[0].tag == 'start', 'start node not first'
             assert list(self.iterchildren())[-1].tag == 'end', 'end node not last'
-            
+
             for action in self.iterchildren(tag='action'):
                 assert len(list(action.iterchildren(tag='ok'))) == 1, 'no ok node'
                 assert len(list(action.iterchildren(tag='error'))) == 1, 'no error node'
                 assert list(action.iterchildren())[-2].tag == 'ok', 'ok node not second to last'
                 assert list(action.iterchildren())[-1].tag == 'error', 'error node not last'
-            
+
             # Ensure all referenced nodes exist.
             existingNodeNames = set([node.get('name') for node in lxml.etree.XPath('//action | //end | //kill')(self)])
             referencedNodeNames = set([node.get('to') for node in lxml.etree.XPath('//*[@to]')(self)])
             assert len(referencedNodeNames - existingNodeNames) == 0, 'some referenced nodes do not exist'
-            
+
         except AssertionError as e:
             raise errors.ClientError('Workflow appears malformed: ' + e.message)
+
 
 class action(_parameterizedElement):
     def __init__(self, *args, **kwargs):
@@ -157,6 +160,7 @@ class action(_parameterizedElement):
         # default tag name; however, we subclass this element, and want the
         # tag name to remain as "action" when we do.
         self.tag = 'action'
+
 
 class _nestedAction(_parameterizedElement):
     def __init__(self, *args, **kwargs):
@@ -171,6 +175,7 @@ class _nestedAction(_parameterizedElement):
         nn = self.makeelement('name-node')
         nn.text = '${wf:conf("nameNode")}'
         self.append(nn)
+
 
 class _nestedMapReduce(_nestedAction):
     def __init__(self, *args, **kwargs):
@@ -195,15 +200,18 @@ class _nestedMapReduce(_nestedAction):
         }
         for (k, v) in self._parameters.iteritems():
             if k in self.deniedAttributes and k not in ['mapper', 'reducer', 'name']:
-                parameters[k] = v 
+                parameters[k] = v
         self.append(configuration(parameters))
+
 
 class mapreduce(action):
     def __init__(self, *args, **kwargs):
         self.deniedAttributes = (self.deniedAttributes or [])
         self.deniedAttributes.extend(['mapper', 'reducer'])
         super(mapreduce, self).__init__(*args, **kwargs)
-        self.append(_nestedMapReduce(dict((k, v) for (k, v) in self._parameters.iteritems() if k in (self.deniedAttributes + ['name']))))
+        self.append(_nestedMapReduce(
+            dict((k, v) for (k, v) in self._parameters.iteritems() if k in (self.deniedAttributes + ['name']))))
+
 
 class _nestedHive(_nestedAction):
     def __init__(self, *args, **kwargs):
@@ -214,19 +222,22 @@ class _nestedHive(_nestedAction):
         self.tag = 'hive'
         self.set('xmlns', 'uri:oozie:hive-action:0.2')
 
+
 class hive(action):
     def __init__(self, *args, **kwargs):
         self.deniedAttributes = (self.deniedAttributes or [])
         self.deniedAttributes.extend(['mapper', 'reducer'])
         super(hive, self).__init__(*args, **kwargs)
-        self.append(_nestedHive(dict((k, v) for (k, v) in self._parameters.iteritems() if k in (self.deniedAttributes + ['name']))))
+        self.append(_nestedHive(
+            dict((k, v) for (k, v) in self._parameters.iteritems() if k in (self.deniedAttributes + ['name']))))
+
 
 class ok(_parameterizedElement):
     pass
 
+
 class error(_parameterizedElement):
     pass
-
 
 
 def _flattenForConfigFile(value):
@@ -243,6 +254,7 @@ def _flattenForConfigFile(value):
     else:
         return str(value)
 
+
 class configuration(_parameterizedElement):
     # Override this function.  We do not have attributes;
     # rather, we have sub-elements.
@@ -256,6 +268,7 @@ class configuration(_parameterizedElement):
             value.text = _flattenForConfigFile(v)
             prop.append(value)
             self.append(prop)
+
 
 class property(_parameterizedElement):
     pass

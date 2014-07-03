@@ -2,10 +2,9 @@ import os
 import socket
 import tempfile
 import urlparse
+
 import webhdfs.webhdfs
-
 from . import errors
-
 
 
 class client(webhdfs.webhdfs.WebHDFS):
@@ -32,18 +31,21 @@ class client(webhdfs.webhdfs.WebHDFS):
             for namenode_port in namenode_ports:
                 hdfs_username = parsed.username or 'hdfs'
                 # Generate a test WebHDFS object
-                test = webhdfs.webhdfs.WebHDFS(namenode_host=namenode_host, namenode_port=namenode_port, hdfs_username=hdfs_username)
+                test = webhdfs.webhdfs.WebHDFS(namenode_host=namenode_host, namenode_port=namenode_port,
+                                               hdfs_username=hdfs_username)
                 try:
                     # Test the test object.
                     test.listdir('/')
                     # Test looked valid.  Use those same parameters to initialize our superclass.
-                    super(client, self).__init__(namenode_host=namenode_host, namenode_port=namenode_port, hdfs_username=hdfs_username)
+                    super(client, self).__init__(namenode_host=namenode_host, namenode_port=namenode_port,
+                                                 hdfs_username=hdfs_username)
                     return
                 # Errors produced when we're unable to retrieve a valid listing using the given parameters.
                 except (KeyError, ValueError, socket.error):
                     pass
         else:
             raise errors.ClientError('WebHDFS at ' + url + ' appears misconfigured')
+
     # Override the webhdfs copy[To|From]Local functions, which erroneously
     # append a leading / to the remote address.
     def copyFromLocal(self, *args, **kwargs):
@@ -54,6 +56,7 @@ class client(webhdfs.webhdfs.WebHDFS):
             args = list(args)
             args[1] = args[1].lstrip('/')
         return super(client, self).copyFromLocal(*args, **kwargs)
+
     def copyToLocal(self, *args, **kwargs):
         # First argument is source_path.
         try:
@@ -62,6 +65,7 @@ class client(webhdfs.webhdfs.WebHDFS):
             args = list(args)
             args[0] = args[0].lstrip('/')
         return super(client, self).copyToLocal(*args, **kwargs)
+
     # Create helper functions which read and write buffers instead of
     # requiring filenames.
     def write(self, path, data):
@@ -75,6 +79,7 @@ class client(webhdfs.webhdfs.WebHDFS):
                 os.remove(filename)
             except OSError:
                 pass
+
     def read(self, path):
         filename = tempfile.NamedTemporaryFile().name
         try:

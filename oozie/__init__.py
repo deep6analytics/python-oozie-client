@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 
-import logging
-import lxml.etree
 import os
 import os.path
 import random
 import socket
 import time
+
+import lxml.etree
+
 
 # Generate useful errors for our callers.
 from . import errors
@@ -16,7 +17,6 @@ from . import elements
 from . import oozie
 # We use the HDFS client to place workflows in the required location.
 from . import hdfs
-
 
 
 OUTPUT_SCRATCH_DIR = '/tmp/oozieoutput/'
@@ -40,14 +40,13 @@ def _extractSingleNamenodeUri(namenodeConfiguration):
             pass
 
 
-
 class jobConfiguration(object):
     # A job is a particular configuration of work.
     # Jobs must be assigned to a cluster before they can be run.
     # A job will have 0 or more runs in it's history.
     # Most functions of the job will implicitly return information from the
     # most recent job run.
-    
+
     #def __new__(cls, *args, **kwargs):
     #    print 'instantiate a jobConfiguration object please'
     #    print args
@@ -66,7 +65,7 @@ class jobConfiguration(object):
     #    # We could also be initialized from
     #    
     #    return
-    
+
     # Jobs need to interact with HDFS via WebHDFS and Oozie via the web
     # service APIs.
     @property
@@ -75,10 +74,11 @@ class jobConfiguration(object):
             assert self.__hdfsClient is not None
         except AttributeError:
             # If no WEBHDFS_URL is configured, let's guess based on the name node configured for Oozie
-            webHdfsUrl = os.environ.get('WEBHDFS_URL') or _extractSingleNamenodeUri(self._oozieClient.config().get('oozie.service.HadoopAccessorService.nameNode.whitelist'))
+            webHdfsUrl = os.environ.get('WEBHDFS_URL') or _extractSingleNamenodeUri(
+                self._oozieClient.config().get('oozie.service.HadoopAccessorService.nameNode.whitelist'))
             self.__hdfsClient = hdfs.client(webHdfsUrl)
         return self.__hdfsClient
-    
+
     @property
     def _oozieClient(self):
         try:
@@ -86,8 +86,8 @@ class jobConfiguration(object):
         except AttributeError:
             self.__oozieClient = oozie.client()
         return self.__oozieClient
-    
-    
+
+
     # These properties generally need to be discovered or assigned once, at
     # which point they become static.
     @property
@@ -95,9 +95,11 @@ class jobConfiguration(object):
         try:
             assert self._uniquifier is not None
         except AttributeError:
-            self._uniquifier = '-'.join([self.get('name', 'unknown'), socket.gethostname(), str(int(time.time() * 1000)), str(''.join([random.choice('0123456789abcdef') for i in xrange(0, 4)]))])
+            self._uniquifier = '-'.join(
+                [self.get('name', 'unknown'), socket.gethostname(), str(int(time.time() * 1000)),
+                 str(''.join([random.choice('0123456789abcdef') for i in xrange(0, 4)]))])
         return self._uniquifier
-    
+
     @property
     def id(self):
         # Determine the id of this job, submitting it to Oozie if necessary to generate one.
@@ -106,18 +108,18 @@ class jobConfiguration(object):
         except AttributeError:
             self.submit()
         return self._id
-    
+
     @property
     def status(self):
         # Determine the status of this job, querying Oozie to find it.
         return self._oozieClient.status(self.id)
-    
+
     def upload(self, localPath, remotePath=None):
         try:
             assert os.path.exists(localPath)
         except AssertionError:
             raise errors.ClientError('File to upload does not exist: "' + localPath + '"')
-        
+
         def walk(path):
             for (dirpath, dirnames, filenames) in os.walk(path):
                 for filename in filenames:
@@ -125,12 +127,12 @@ class jobConfiguration(object):
                 for dirname in dirnames:
                     for filename in walk(os.path.join(dirpath, dirname)):
                         yield filename
-        
+
         remotePath = ([''] + (remotePath or self.sourcePath).split('hdfs://', 1))[-1]
         if not remotePath.startswith('/'):
             # Not an absolute path.
             remotePath = os.path.join(self.sourcePath, remotePath)
-        
+
         for localFilename in (walk(localPath) if os.path.isdir(localPath) else [localPath]):
             print 'please upload '
             print localFilename
@@ -142,16 +144,16 @@ class jobConfiguration(object):
             print 'to'
             print remoteFilename
             self._hdfsClient.mkdir(os.path.dirname(remoteFilename))
-            
+
             status = self._hdfsClient.copyFromLocal(localFilename, remoteFilename)
             try:
                 assert status == 201
             except AssertionError:
                 raise errors.ServerError('Uploaded file not created: "' + remoteFilename + '"')
-        
+
         remotePath = 'hdfs://' + remotePath
         return remotePath
-    
+
     @property
     def sourcePath(self):
         # Determine or create the HDFS source path for this job.
@@ -179,7 +181,7 @@ class jobConfiguration(object):
             # Set the containing directory as our source path
             self._sourcePath = workflowDirectory
         return self._sourcePath
-    
+
     @property
     def outputPath(self):
         # Determine or assign the HDFS output path for this invocation of this job.
@@ -193,7 +195,7 @@ class jobConfiguration(object):
             #self._hdfsClient.mkdir(outputDirectory)
             self._outputPath = outputDirectory
         return self._outputPath
-    
+
     # Actions which we can take for this job against the Oozie service.
     def submit(self, parameters=None):
         try:
@@ -217,14 +219,16 @@ class jobConfiguration(object):
         # TODO
         #if len(self._hdfsClient.listdir(parameters['oozie.libpath'])) == 0:
         #    raise errors.ClientError('Libpath "' + parameters['oozie.libpath'] + '" does not exist or is empty.')
-            
+
         # Required parameters which you might not have set.
         # We'll try to do it for you if we can.
         if 'jobTracker' not in parameters:
-            parameters['jobTracker'] = self._oozieClient.config().get('oozie.service.HadoopAccessorService.jobTracker.whitelist')
+            parameters['jobTracker'] = self._oozieClient.config().get(
+                'oozie.service.HadoopAccessorService.jobTracker.whitelist')
         if 'nameNode' not in parameters:
-            parameters['nameNode'] = _extractSingleNamenodeUri(self._oozieClient.config().get('oozie.service.HadoopAccessorService.nameNode.whitelist'))
-        
+            parameters['nameNode'] = _extractSingleNamenodeUri(
+                self._oozieClient.config().get('oozie.service.HadoopAccessorService.nameNode.whitelist'))
+
         # Default substitutions I think you might use and I am using to test this
         if 'output' not in parameters:
             parameters['output'] = 'hdfs://' + ([''] + self.outputPath.split('hdfs://', 1))[-1]
@@ -232,27 +236,33 @@ class jobConfiguration(object):
         print lxml.etree.tostring(conf, pretty_print=True)
         self._id = self._oozieClient.submit(lxml.etree.tostring(conf))
         return True
+
     def run(self):
         return self._oozieClient.run(self.id)
+
     def suspend(self):
         return self._oozieClient.suspend(self.id)
+
     def resume(self):
         try:
             assert self.status == 'SUSPENDED'
         except AssertionError:
             raise errors.ClientError('Cannot resume a workflow job that is not suspended')
         return self._oozieClient.resume(self.id)
+
     def kill(self):
         return self._oozieClient.kill(self.id)
+
     def rerun(self, skip=None, parameters=None):
         if skip is None:
             # Inventory steps.  Skip all the ones that have a status of "OK"
             skip = 1
         return self._oozieClient.rerun()
+
     def schedule(self, action, ts, parameters):
         # Create a coordinator job which will run the job at the specified time.
         pass
-    
+
     def iterOutputFilenames(self):
         try:
             assert self.status == 'SUCCEEDED'
@@ -268,13 +278,16 @@ class jobConfiguration(object):
                     if not subpath.startswith('_'):
                         for filename in inventoryFilesRecursively(os.path.join(path, subpath)):
                             yield filename
+
         for filename in inventoryFilesRecursively(self.outputPath):
             # Retrieve file
             yield filename
+
     def iterOutputLines(self):
         for filename in self.iterOutputFilenames():
             for line in self._hdfsClient.read(filename).splitlines():
                 yield line.rstrip('\n')
+
 
 class workflowJob(elements.workflow, jobConfiguration):
     def __init__(self, *args, **kwargs):
