@@ -54,7 +54,7 @@ class workflow(_parameterizedElement):
         return actionElement
 
     def fix(self):
-        print lxml.etree.tostring(self, pretty_print=True)
+        logging.debug(lxml.etree.tostring(self, pretty_print=True))
 
         # Must have a start node
         if len(list(self.iterchildren(tag='start'))) < 1 and len(list(self.iterchildren(tag='action'))) > 0:
@@ -125,7 +125,7 @@ class workflow(_parameterizedElement):
         if fix:
             self.fix()
 
-        print lxml.etree.tostring(self, pretty_print=True)
+        logging.debug(lxml.etree.tostring(self, pretty_print=True))
 
         try:
             assert len(list(self.iterchildren(tag='start'))) == 1, 'no start node'
