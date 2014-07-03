@@ -28,9 +28,9 @@ def expectCode(response, expectedCode, action):
 
 def expectJsonFields(response, expectedFields, action):
     try:
-        assert response.json is not None
+        assert response.json() is not None
         for field in expectedFields:
-            assert field in response.json
+            assert field in response.json()
     except AssertionError:
         raise errors.ServerError('Malformed response when ' + action + ' at ' + response.url + '\nMessage was ' + str(response.status_code) + ':\n' + response.text)
 
@@ -52,11 +52,11 @@ class client(object):
         try:
             expectCode(response, 200, 'performing healthcheck')
             expectJsonFields(response, ['systemMode'], 'performing healthcheck')
-            assert response.json['systemMode'] == 'NORMAL'
+            assert response.json()['systemMode'] == 'NORMAL'
             logging.info('Oozie installation at ' + self._url + ' appears operational')
             return True
         except AssertionError:
-            raise errors.ServerError('Oozie server reports ' + response.json['systemMode'])
+            raise errors.ServerError('Oozie server reports ' + response.json()['systemMode'])
         except ValueError as e:
             raise errors.ClientError(e.message)
         except urllib2.HTTPError as e:
@@ -68,7 +68,7 @@ class client(object):
         )
         expectCode(response, 200, 'retrieving Oozie configuration')
         expectJsonFields(response, [], 'retrieving Oozie configuration')
-        return response.json
+        return response.json()
     
     def list(self):
         response = requests.get(
@@ -76,7 +76,7 @@ class client(object):
         )
         expectCode(response, 200, 'listing jobs')
         expectJsonFields(response, ['workflows'], 'listing jobs')
-        return [wf['id'] for wf in response.json['workflows']]
+        return [wf['id'] for wf in response.json()['workflows']]
     
     # 
     def submit(self, configuration):
@@ -87,7 +87,7 @@ class client(object):
         )
         expectCode(response, 201, 'submitting job')
         expectJsonFields(response, ['id'], 'submitting job')
-        return response.json['id']
+        return response.json()['id']
     
     def run(self, jobId):
         response = requests.put(
@@ -119,7 +119,7 @@ class client(object):
         )
         expectCode(response, 200, 'querying job status')
         expectJsonFields(response, ['status'], 'querying job status')
-        return response.json['status']
+        return response.json()['status']
     
     def error(self, jobId):
         response = requests.get(
@@ -127,7 +127,7 @@ class client(object):
         )
         expectCode(response, 200, 'listing job errors')
         expectJsonFields(response, ['actions'], 'listing job errors')
-        for action in response.json['actions']:
+        for action in response.json()['actions']:
             if action['errorMessage'] is not None:
                 return action['errorMessage']
         return None
