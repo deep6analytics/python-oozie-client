@@ -4,10 +4,10 @@ import setuptools
 
 setuptools.setup(
     name='oozie',
-    version='0.1.1',
+    version='0.1.1-dev',
     author='Matt Bornski',
     author_email='matt@bornski.com',
-    url='https://github.com/mattbornski/python-oozie-client',
+    url='https://github.com/deep6analytics/python-oozie-client',
     
     # Prerequisites:
     # You need to have a Hadoop cluster with Oozie installed, and you need
