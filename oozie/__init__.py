@@ -134,15 +134,11 @@ class jobConfiguration(object):
             remotePath = os.path.join(self.sourcePath, remotePath)
 
         for localFilename in (walk(localPath) if os.path.isdir(localPath) else [localPath]):
-            print 'please upload '
-            print localFilename
             deltaPath = localPath.split(os.path.commonprefix([localFilename, localPath]), 1)[-1]
             if deltaPath == '':
                 remoteFilename = os.path.join(remotePath, os.path.basename(localFilename))
             else:
                 remoteFilename = os.path.join(remotePath, deltaPath)
-            print 'to'
-            print remoteFilename
             self._hdfsClient.mkdir(os.path.dirname(remoteFilename))
 
             status = self._hdfsClient.copyFromLocal(localFilename, remoteFilename)
@@ -167,7 +163,6 @@ class jobConfiguration(object):
             workflowDirectory = os.path.join(WORKFLOW_SCRATCH_DIR, self.uniquifier)
             self._hdfsClient.mkdir(workflowDirectory)
             workflowPath = os.path.join(workflowDirectory, 'workflow.xml')
-            print lxml.etree.tostring(self, pretty_print=True)
             self._hdfsClient.write(workflowPath, lxml.etree.tostring(self, pretty_print=True))
             # Let's also upload an XML file which contains configuration defaults.
             #defaultConfigPath = os.path.join(workflowDirectory, 'config-default.xml')
@@ -233,7 +228,6 @@ class jobConfiguration(object):
         if 'output' not in parameters:
             parameters['output'] = 'hdfs://' + ([''] + self.outputPath.split('hdfs://', 1))[-1]
         conf = elements.configuration(parameters)
-        print lxml.etree.tostring(conf, pretty_print=True)
         self._id = self._oozieClient.submit(lxml.etree.tostring(conf))
         return True
 
